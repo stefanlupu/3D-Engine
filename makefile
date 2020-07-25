@@ -1,5 +1,5 @@
-Engine: engine.cpp
-	g++ engine.cpp -o Engine -lSDL2 -lSDL2main
+Engine: engine.cpp data-structures.cpp
+	g++ engine.cpp data-structures.cpp -o Engine -lSDL2 -lSDL2main
 
 run: Engine
 	./Engine
