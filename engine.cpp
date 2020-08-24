@@ -3,8 +3,13 @@
 #include <math.h>
 #include "data-structures.h"
 
+// screen properties
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT = 720;
+
+// perspective projection properties
+const float aspectRatio = 720.0f / 1280.0f;
+const float fovRadians = 1.0f / (tanf(90.0f * 0.5f  * 3.14159f / 180.0f));
 
 int main(int argc, char* args[]) {
     // initialize objects
@@ -61,11 +66,39 @@ int main(int argc, char* args[]) {
             };
 
             // initialize perspective matrix responsible for projecting 3D coordinates to 2D
-            perspectiveProjection perspectiveMatrix;
+            matrix_4D perspectiveMatrix = {
+                {
+                    { aspectRatio * fovRadians, 0.0f, 0.0f, 0.0f},
+                    { 0.0f, fovRadians, 0.0f, 0.0f},
+                    { 0.0f, 0.0f, 1000.0f / (1000.0f - 0.1f), 1.0f},
+                    { 0.0f, 0.0f, -1000.0f * 0.1 / (1000.0f - 0.1f), 0.0f},
+                }
+            };
+
+            // initialize rotation matrix which will rotate the x and z planes
+            float theta = 0.0f;
+            matrix_4D rotationXZMatrix = {
+                {
+                    {cosf(theta), sinf(theta) * cosf(theta * 0.5f), sinf(theta) * sinf(theta * 0.5f), 0.0f},
+                    {-sinf(theta), cosf(theta) * cosf(theta * 0.5f), cosf(theta) * sinf(theta * 0.5), 0.0f},
+                    {0.0f, -sinf(theta * 0.5), cosf(theta * 0.5), 0.0f},
+                    {0.0f, 0.0f, 0.0f, 1.0f},
+                }
+            };
+
+            Uint64 currentTime = SDL_GetPerformanceCounter();
+            Uint64 lastTime = 0;
+            double dt = 0;
 
             // engine loop
             isRunning = true;
             while (isRunning) {
+                // update delta time
+                lastTime = currentTime;
+                currentTime = SDL_GetPerformanceCounter();
+
+                dt = (double)(currentTime - lastTime) / SDL_GetPerformanceFrequency();
+
                 // poll for events
                 while (SDL_PollEvent(&event) != 0) {
                     // exit engine loop if window x button is pressed
@@ -81,6 +114,19 @@ int main(int argc, char* args[]) {
                     isRunning = false;
                 }
 
+                // update rotation matrix
+                rotationXZMatrix = {
+                    {
+                        {cosf(theta), sinf(theta) * cosf(theta * 0.5f), sinf(theta) * sinf(theta * 0.5f), 0.0f},
+                        {-sinf(theta), cosf(theta) * cosf(theta * 0.5f), cosf(theta) * sinf(theta * 0.5), 0.0f},
+                        {0.0f, -sinf(theta * 0.5), cosf(theta * 0.5), 0.0f},
+                        {0.0f, 0.0f, 0.0f, 1.0f},
+                    }
+                };
+
+                // update angle of rotation in relation to delta time
+                theta += 1 * dt;
+
                 // set backgroud to white
                 SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
                 SDL_RenderClear(renderer);
@@ -93,17 +139,23 @@ int main(int argc, char* args[]) {
                     // make a copy of the current poligon
                     triangle poligonCopy = unitCube.poligons[i];
                     // initialise empty triangle used for vertex processing
+                    triangle rotatedPoligon = {0};
                     triangle projectedPoligon = {0};
 
+                    rotatedPoligon.verteces[0] = projectVector(poligonCopy.verteces[0], rotationXZMatrix);
+                    rotatedPoligon.verteces[1] = projectVector(poligonCopy.verteces[1], rotationXZMatrix);
+                    rotatedPoligon.verteces[2] = projectVector(poligonCopy.verteces[2], rotationXZMatrix);
+
+
                     // offset current poligon in order to position it in front of the camera
-                    poligonCopy.verteces[0].z += 2.0f;
-                    poligonCopy.verteces[1].z += 2.0f;
-                    poligonCopy.verteces[2].z += 2.0f;
+                    rotatedPoligon.verteces[0].z += 3.0f;
+                    rotatedPoligon.verteces[1].z += 3.0f;
+                    rotatedPoligon.verteces[2].z += 3.0f;
 
                     // project current poligons verteces using the projection matrix
-                    projectedPoligon.verteces[0] = projectVector(poligonCopy.verteces[0], perspectiveMatrix);
-                    projectedPoligon.verteces[1] = projectVector(poligonCopy.verteces[1], perspectiveMatrix);
-                    projectedPoligon.verteces[2] = projectVector(poligonCopy.verteces[2], perspectiveMatrix);
+                    projectedPoligon.verteces[0] = projectVector(rotatedPoligon.verteces[0], perspectiveMatrix);
+                    projectedPoligon.verteces[1] = projectVector(rotatedPoligon.verteces[1], perspectiveMatrix);
+                    projectedPoligon.verteces[2] = projectVector(rotatedPoligon.verteces[2], perspectiveMatrix);
 
                     // scale points back into screen space
                     projectedPoligon.verteces[0].x += 1.0f;
