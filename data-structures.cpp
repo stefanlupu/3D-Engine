@@ -10,7 +10,7 @@ void drawTriangle(triangle t, SDL_Renderer* renderer) {
 }
 
 // return a perspective projected version of a given 3D vector
-vector_3D projectVector(vector_3D v, perspectiveProjection m) {
+vector_3D projectVector(vector_3D v, matrix_4D m) {
     vector_3D pv;
 
     pv.x = v.x * m.cells[0][0] + v.y * m.cells[1][0] + v.z * m.cells[2][0] + m.cells[3][0];
