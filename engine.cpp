@@ -3,13 +3,9 @@
 #include <math.h>
 #include "data-structures.h"
 
-// screen properties
+// screen constatnt
 const int SCREEN_WIDTH = 1280;
 const int SCREEN_HEIGHT = 720;
-
-// perspective projection properties
-const float aspectRatio = 720.0f / 1280.0f;
-const float fovRadians = 1.0f / (tanf(90.0f * 0.5f  * 3.14159f / 180.0f));
 
 int main(int argc, char* args[]) {
     // initialize objects
@@ -17,13 +13,21 @@ int main(int argc, char* args[]) {
     SDL_Renderer* renderer = NULL;
     SDL_Event event;
 
+    // window size which are initially the sreen constants
+    int windowWidth = SCREEN_WIDTH;
+    int windowHeight = SCREEN_HEIGHT;
+
+    // perspective projection properties
+    float aspectRatio = (float)windowHeight / (float)windowWidth;
+    float fovRadians = 1.0f / (tanf(90.0f * 0.5f  * 3.14159f / 180.0f));
+
     bool isRunning = false;
 
     // raise an error if SDL fails to load
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL could not initialize! SDL Error: %s\n", SDL_GetError());
     } else {
-        window = SDL_CreateWindow("Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+        window = SDL_CreateWindow("Test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
         // raise error if window/renderer creation fails
         if (window == NULL) {
@@ -44,8 +48,8 @@ int main(int argc, char* args[]) {
                     triangle{{{0.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 0.0f, 0.0f}}},
 
                     // N
-                    triangle{{{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 1.0f}, {1.0f, 1.0f, 1.0f}}},
-                    triangle{{{1.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 1.0f}}},
+                    triangle{{{1.0f, 0.0f, 1.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 1.0f}}},
+                    triangle{{{1.0f, 0.0f, 1.0f}, {0.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}}},
 
                     // E
                     triangle{{{1.0f, 0.0f, 0.0f}, {1.0f, 1.0f, 0.0f}, {1.0f, 1.0f, 1.0f}}},
@@ -66,26 +70,13 @@ int main(int argc, char* args[]) {
             };
 
             // initialize perspective matrix responsible for projecting 3D coordinates to 2D
-            matrix_4D perspectiveMatrix = {
-                {
-                    { aspectRatio * fovRadians, 0.0f, 0.0f, 0.0f},
-                    { 0.0f, fovRadians, 0.0f, 0.0f},
-                    { 0.0f, 0.0f, 1000.0f / (1000.0f - 0.1f), 1.0f},
-                    { 0.0f, 0.0f, -1000.0f * 0.1 / (1000.0f - 0.1f), 0.0f},
-                }
-            };
+            matrix_4D perspectiveMatrix = {0};
 
-            // initialize rotation matrix which will rotate the x and z planes
+            // declare rotation matrix which will rotate the x and z planes
             float theta = 0.0f;
-            matrix_4D rotationXZMatrix = {
-                {
-                    {cosf(theta), sinf(theta) * cosf(theta * 0.5f), sinf(theta) * sinf(theta * 0.5f), 0.0f},
-                    {-sinf(theta), cosf(theta) * cosf(theta * 0.5f), cosf(theta) * sinf(theta * 0.5), 0.0f},
-                    {0.0f, -sinf(theta * 0.5), cosf(theta * 0.5), 0.0f},
-                    {0.0f, 0.0f, 0.0f, 1.0f},
-                }
-            };
+            matrix_4D rotationXZMatrix = {0};
 
+            // dt variables
             Uint64 currentTime = SDL_GetPerformanceCounter();
             Uint64 lastTime = 0;
             double dt = 0;
@@ -105,6 +96,13 @@ int main(int argc, char* args[]) {
                     if (event.type == SDL_QUIT) {
                         isRunning = false;
                     }
+
+                    // resize window and respective variables and update aspect ratio
+                    if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                        windowWidth = event.window.data1;
+                        windowHeight = event.window.data2;
+                        aspectRatio = (float)windowHeight / (float)windowWidth;
+                    }
                 }
 
                 // key presses
@@ -113,6 +111,16 @@ int main(int argc, char* args[]) {
                 if (keyStates[SDL_SCANCODE_ESCAPE]) {
                     isRunning = false;
                 }
+
+                // update projection matrix
+                perspectiveMatrix = {
+                    {
+                        { aspectRatio * fovRadians, 0.0f, 0.0f, 0.0f},
+                        { 0.0f, fovRadians, 0.0f, 0.0f},
+                        { 0.0f, 0.0f, 1000.0f / (1000.0f - 0.1f), 1.0f},
+                        { 0.0f, 0.0f, -1000.0f * 0.1 / (1000.0f - 0.1f), 0.0f},
+                    }
+                };
 
                 // update rotation matrix
                 rotationXZMatrix = {
@@ -138,44 +146,49 @@ int main(int argc, char* args[]) {
 
                     // make a copy of the current poligon
                     triangle poligonCopy = unitCube.poligons[i];
-                    // initialise empty triangle used for vertex processing
+                    // initialise empty triangles used for vertex processing
                     triangle rotatedPoligon = {0};
                     triangle projectedPoligon = {0};
 
+                    // rotate current poligons verteces using the rotation matrix
                     rotatedPoligon.verteces[0] = projectVector(poligonCopy.verteces[0], rotationXZMatrix);
                     rotatedPoligon.verteces[1] = projectVector(poligonCopy.verteces[1], rotationXZMatrix);
                     rotatedPoligon.verteces[2] = projectVector(poligonCopy.verteces[2], rotationXZMatrix);
-
 
                     // offset current poligon in order to position it in front of the camera
                     rotatedPoligon.verteces[0].z += 3.0f;
                     rotatedPoligon.verteces[1].z += 3.0f;
                     rotatedPoligon.verteces[2].z += 3.0f;
 
-                    // project current poligons verteces using the projection matrix
-                    projectedPoligon.verteces[0] = projectVector(rotatedPoligon.verteces[0], perspectiveMatrix);
-                    projectedPoligon.verteces[1] = projectVector(rotatedPoligon.verteces[1], perspectiveMatrix);
-                    projectedPoligon.verteces[2] = projectVector(rotatedPoligon.verteces[2], perspectiveMatrix);
+                    vector_3D normal = calculateTriangleNormal(rotatedPoligon);
 
-                    // scale points back into screen space
-                    projectedPoligon.verteces[0].x += 1.0f;
-                    projectedPoligon.verteces[1].x += 1.0f;
-                    projectedPoligon.verteces[2].x += 1.0f;
+                    if (normal.z < 0.0f) {
 
-                    projectedPoligon.verteces[0].y += 1.0f;
-                    projectedPoligon.verteces[1].y += 1.0f;
-                    projectedPoligon.verteces[2].y += 1.0f;
+                        // project current poligons verteces using the projection matrix
+                        projectedPoligon.verteces[0] = projectVector(rotatedPoligon.verteces[0], perspectiveMatrix);
+                        projectedPoligon.verteces[1] = projectVector(rotatedPoligon.verteces[1], perspectiveMatrix);
+                        projectedPoligon.verteces[2] = projectVector(rotatedPoligon.verteces[2], perspectiveMatrix);
 
-                    projectedPoligon.verteces[0].x *= 0.5f * (float)SCREEN_WIDTH;
-                    projectedPoligon.verteces[1].x *= 0.5f * (float)SCREEN_WIDTH;
-                    projectedPoligon.verteces[2].x *= 0.5f * (float)SCREEN_WIDTH;
+                        // scale points back into screen space
+                        projectedPoligon.verteces[0].x += 1.0f;
+                        projectedPoligon.verteces[1].x += 1.0f;
+                        projectedPoligon.verteces[2].x += 1.0f;
 
-                    projectedPoligon.verteces[0].y *= 0.5f * (float)SCREEN_HEIGHT;
-                    projectedPoligon.verteces[1].y *= 0.5f * (float)SCREEN_HEIGHT;
-                    projectedPoligon.verteces[2].y *= 0.5f * (float)SCREEN_HEIGHT;
+                        projectedPoligon.verteces[0].y += 1.0f;
+                        projectedPoligon.verteces[1].y += 1.0f;
+                        projectedPoligon.verteces[2].y += 1.0f;
 
-                    // render current poligon
-                    drawTriangle(projectedPoligon, renderer);
+                        projectedPoligon.verteces[0].x *= 0.5f * (float)windowWidth;
+                        projectedPoligon.verteces[1].x *= 0.5f * (float)windowWidth;
+                        projectedPoligon.verteces[2].x *= 0.5f * (float)windowWidth;
+
+                        projectedPoligon.verteces[0].y *= 0.5f * (float)windowHeight;
+                        projectedPoligon.verteces[1].y *= 0.5f * (float)windowHeight;
+                        projectedPoligon.verteces[2].y *= 0.5f * (float)windowHeight;
+
+                        // render current poligon
+                        drawTriangle(projectedPoligon, renderer);
+                    }
                 }
 
                 // update
