@@ -11,6 +11,7 @@ struct triangle {
 };
 
 void drawTriangle(triangle t, SDL_Renderer* renderer);
+vector_3D calculateTriangleNormal(triangle t);
 
 struct mesh {
         std::vector<triangle> poligons;
