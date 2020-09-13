@@ -19,7 +19,7 @@ Bellow you can see gifs of the engine running in it's various states of developm
 ## Installation
 
 On Linux having SDL2 installed and running "make run" in the directory you cloned this repo should be enough to compile and run the application.
-Mac/Windows should be a similar process altough I have not formally tested the compilation process on them.
+Mac/Windows should be a similar process altough I have not formally tested the compiling process on them.
 
 ## Learning Resources
   * [javidx9's YouTube series](https://www.youtube.com/watch?v=ih20l3pJoeU&t=780s)
