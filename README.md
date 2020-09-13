@@ -12,7 +12,7 @@ Finally, it's a great excuse to start learning C++.
 
 Bellow you can see gifs of the engine running in it's various states of development:
 
-* Basic unit cube spinning:
+* Basic unit cube spinning with some simple rendering optimization:
   
   ![](3d-cube-demo.gif)
 
